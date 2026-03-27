@@ -1,0 +1,22 @@
+# node
+node_modules
+.env
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# build
+dist
+build
+
+# macOS
+.DS_Store
+
+# vscode
+.vscode
+
+# env
+frontend/.env
+backend/.env
