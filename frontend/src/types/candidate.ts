@@ -20,6 +20,8 @@ export type Candidate = {
   position: string;
   unit: string;
   status: CandidateStatus;
+  dateOfContact: string;
+  dateOfEnrollment: string | null;
   notes: string;
   statusHistory: CandidateStatusHistoryItem[];
   createdAt: string;

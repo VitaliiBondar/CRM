@@ -1,7 +1,30 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import { getCandidates } from '../api/candidates';
 import { candidateStatusLabels } from '../utils/candidateStatus';
+
+const STATUS_COLORS: Record<string, string> = {
+  in_work: '#2563eb',
+  documents: '#ca8a04',
+  vlk: '#9333ea',
+  enrolled: '#16a34a',
+  declined: '#dc2626',
+};
 
 export default function DashboardPage() {
   const [monthFilter, setMonthFilter] = useState('');
@@ -38,6 +61,78 @@ export default function DashboardPage() {
     };
   }, [data]);
 
+  const statusChartData = useMemo(() => {
+    return [
+      {
+        key: 'in_work',
+        name: candidateStatusLabels.in_work,
+        value: stats.inWork,
+      },
+      {
+        key: 'documents',
+        name: candidateStatusLabels.documents,
+        value: stats.documents,
+      },
+      {
+        key: 'vlk',
+        name: candidateStatusLabels.vlk,
+        value: stats.vlk,
+      },
+      {
+        key: 'enrolled',
+        name: candidateStatusLabels.enrolled,
+        value: stats.enrolled,
+      },
+      {
+        key: 'declined',
+        name: candidateStatusLabels.declined,
+        value: stats.declined,
+      },
+    ];
+  }, [stats]);
+
+  const unitChartData = useMemo(() => {
+    const candidates = data ?? [];
+    const unitsMap = new Map<string, number>();
+
+    for (const candidate of candidates) {
+      const current = unitsMap.get(candidate.unit) ?? 0;
+      unitsMap.set(candidate.unit, current + 1);
+    }
+
+    return Array.from(unitsMap.entries())
+      .map(([unit, count]) => ({
+        unit,
+        count,
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8);
+  }, [data]);
+
+  const monthlyContactsData = useMemo(() => {
+    const candidates = data ?? [];
+    const monthMap = new Map<string, number>();
+
+    for (const candidate of candidates) {
+      if (!candidate.dateOfContact) continue;
+
+      const date = new Date(candidate.dateOfContact);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const key = `${year}-${month}`;
+
+      const current = monthMap.get(key) ?? 0;
+      monthMap.set(key, current + 1);
+    }
+
+    return Array.from(monthMap.entries())
+      .map(([month, count]) => ({
+        month,
+        count,
+      }))
+      .sort((a, b) => a.month.localeCompare(b.month));
+  }, [data]);
+
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
@@ -61,13 +156,13 @@ export default function DashboardPage() {
       </div>
 
       {isLoading && (
-        <div className="rounded-xl bg-white p-4 shadow text-gray-500">
+        <div className="rounded-xl bg-white p-4 text-gray-500 shadow">
           Завантаження...
         </div>
       )}
 
       {isError && (
-        <div className="rounded-xl bg-white p-4 shadow text-red-600">
+        <div className="rounded-xl bg-white p-4 text-red-600 shadow">
           Помилка при завантаженні аналітики
         </div>
       )}
@@ -125,6 +220,80 @@ export default function DashboardPage() {
               <p className="mt-2 text-3xl font-bold text-red-600">
                 {stats.declined}
               </p>
+            </div>
+          </div>
+
+          <div className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
+            <div className="rounded-xl bg-white p-5 shadow">
+              <h3 className="mb-4 text-lg font-semibold">
+                Розподіл по статусах
+              </h3>
+
+              <div className="h-[320px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={statusChartData}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={100}
+                      label
+                    >
+                      {statusChartData.map((entry) => (
+                        <Cell key={entry.key} fill={STATUS_COLORS[entry.key]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="rounded-xl bg-white p-5 shadow">
+              <h3 className="mb-4 text-lg font-semibold">
+                Кандидати по підрозділах
+              </h3>
+
+              <div className="h-[320px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={unitChartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="unit" />
+                    <YAxis allowDecimals={false} />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="count" name="Кількість" fill="#2563eb" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+
+          <div className="mb-6 rounded-xl bg-white p-5 shadow">
+            <h3 className="mb-4 text-lg font-semibold">
+              Динаміка звернень по місяцях
+            </h3>
+
+            <div className="h-[320px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={monthlyContactsData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis allowDecimals={false} />
+                  <Tooltip />
+                  <Legend />
+                  <Line
+                    type="monotone"
+                    dataKey="count"
+                    name="Звернення"
+                    stroke="#2563eb"
+                    strokeWidth={3}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
             </div>
           </div>
 

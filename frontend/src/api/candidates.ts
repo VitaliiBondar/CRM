@@ -1,6 +1,5 @@
 import axios from 'axios';
 import type { Candidate, CandidateStatus } from '../types/candidate';
-
 import { getToken } from '../utils/auth';
 
 const api = axios.create({
@@ -25,6 +24,8 @@ export type CreateCandidateDto = {
   position: string;
   unit: string;
   status: CandidateStatus;
+  dateOfContact: string;
+  dateOfEnrollment: string | null;
   notes: string;
 };
 
@@ -36,6 +37,8 @@ export type UpdateCandidateDto = {
   position: string;
   unit: string;
   status: CandidateStatus;
+  dateOfContact: string;
+  dateOfEnrollment: string | null;
   notes: string;
 };
 
@@ -85,5 +88,12 @@ export const deleteCandidate = async (
   candidateId: string
 ): Promise<{ message: string }> => {
   const response = await api.delete(`/candidates/${candidateId}`);
+  return response.data;
+};
+
+export const getCandidateById = async (
+  candidateId: string
+): Promise<Candidate> => {
+  const response = await api.get(`/candidates/${candidateId}`);
   return response.data;
 };

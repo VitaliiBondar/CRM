@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createCandidate, type CreateCandidateDto } from '../api/candidates';
+import toast from 'react-hot-toast';
 
 const candidateSchema = z.object({
   fullName: z.string().min(3, 'Введи ПІБ'),
@@ -13,6 +14,8 @@ const candidateSchema = z.object({
   position: z.string().min(2, 'Вкажи посаду'),
   unit: z.string().min(2, 'Вкажи підрозділ'),
   status: z.enum(['in_work', 'documents', 'vlk', 'enrolled', 'declined']),
+  dateOfContact: z.string().min(1, 'Вкажи дату звернення'),
+  dateOfEnrollment: z.string().nullable(),
   notes: z.string().optional(),
 });
 
@@ -32,6 +35,7 @@ export default function CandidateForm({
     handleSubmit,
     formState: { errors },
     reset,
+    watch,
   } = useForm<CandidateFormValues>({
     resolver: zodResolver(candidateSchema),
     defaultValues: {
@@ -42,22 +46,35 @@ export default function CandidateForm({
       position: '',
       unit: '',
       status: 'in_work',
+      dateOfContact: '',
+      dateOfEnrollment: null,
       notes: '',
     },
   });
+
+  const selectedStatus = watch('status');
 
   const mutation = useMutation({
     mutationFn: (data: CreateCandidateDto) => createCandidate(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['candidates'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-candidates'] });
       reset();
+      toast.success('Кандидата успішно додано');
       onSuccess?.();
+    },
+    onError: () => {
+      toast.error('Не вдалося зберегти кандидата');
     },
   });
 
   const onSubmit: SubmitHandler<CandidateFormValues> = (data) => {
     mutation.mutate({
       ...data,
+      dateOfEnrollment:
+        data.dateOfEnrollment && data.dateOfEnrollment.trim() !== ''
+          ? data.dateOfEnrollment
+          : null,
       notes: data.notes ?? '',
     });
   };
@@ -74,9 +91,7 @@ export default function CandidateForm({
           className="w-full rounded-lg border px-3 py-2"
         />
         {errors.fullName && (
-          <p className="mt-1 text-sm text-red-600">
-            {errors.fullName.message}
-          </p>
+          <p className="mt-1 text-sm text-red-600">{errors.fullName.message}</p>
         )}
       </div>
 
@@ -126,9 +141,7 @@ export default function CandidateForm({
           className="w-full rounded-lg border px-3 py-2"
         />
         {errors.position && (
-          <p className="mt-1 text-sm text-red-600">
-            {errors.position.message}
-          </p>
+          <p className="mt-1 text-sm text-red-600">{errors.position.message}</p>
         )}
       </div>
 
@@ -160,6 +173,35 @@ export default function CandidateForm({
         )}
       </div>
 
+      <div>
+        <label className="mb-1 block text-sm font-medium">Дата звернення</label>
+        <input
+          type="date"
+          {...register('dateOfContact')}
+          className="w-full rounded-lg border px-3 py-2"
+        />
+        {errors.dateOfContact && (
+          <p className="mt-1 text-sm text-red-600">
+            {errors.dateOfContact.message}
+          </p>
+        )}
+      </div>
+
+      <div>
+        <label className="mb-1 block text-sm font-medium">
+          Дата зарахування
+        </label>
+        <input
+          type="date"
+          {...register('dateOfEnrollment')}
+          className="w-full rounded-lg border px-3 py-2"
+          disabled={selectedStatus !== 'enrolled'}
+        />
+        <p className="mt-1 text-xs text-gray-500">
+          Якщо статус одразу "Зарахований", дата підставиться автоматично.
+        </p>
+      </div>
+
       <div className="md:col-span-2">
         <label className="mb-1 block text-sm font-medium">Нотатки</label>
         <textarea
@@ -176,10 +218,6 @@ export default function CandidateForm({
         >
           {mutation.isPending ? 'Збереження...' : 'Зберегти кандидата'}
         </button>
-
-        {mutation.isError && (
-          <p className="self-center text-red-600">Помилка при збереженні</p>
-        )}
       </div>
     </form>
   );

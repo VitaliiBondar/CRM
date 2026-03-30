@@ -56,6 +56,14 @@ const candidateSchema = new mongoose.Schema(
       enum: ["in_work", "documents", "vlk", "enrolled", "declined"],
       default: "in_work",
     },
+    dateOfContact: {
+      type: Date,
+      required: true,
+    },
+    dateOfEnrollment: {
+      type: Date,
+      default: null,
+    },
     notes: {
       type: String,
       default: "",

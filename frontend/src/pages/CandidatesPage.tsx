@@ -13,6 +13,10 @@ import {
   candidateStatusLabels,
 } from '../utils/candidateStatus';
 import type { Candidate, CandidateStatus } from '../types/candidate';
+import { exportCandidatesToCsv } from '../utils/exportCandidatesToCsv';
+import { exportCandidatesToExcel } from '../utils/exportCandidatesToExcel';
+import toast from 'react-hot-toast';
+import { Link } from 'react-router-dom';
 
 export default function CandidatesPage() {
   const queryClient = useQueryClient();
@@ -90,6 +94,10 @@ export default function CandidatesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['candidates'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-candidates'] });
+      toast.success('Статус кандидата оновлено');
+    },
+    onError: () => {
+      toast.error('Не вдалося оновити статус');
     },
   });
 
@@ -100,6 +108,10 @@ export default function CandidatesPage() {
       queryClient.invalidateQueries({ queryKey: ['dashboard-candidates'] });
       setEditingCandidate(null);
       setHistoryCandidate(null);
+      toast.success('Кандидата видалено');
+    },
+    onError: () => {
+      toast.error('Не вдалося видалити кандидата');
     },
   });
 
@@ -136,16 +148,34 @@ export default function CandidatesPage() {
       <div className="mb-6 flex items-center justify-between">
         <h2 className="text-2xl font-bold">Кандидати</h2>
 
-        <button
-          onClick={() => {
-            setShowForm((prev) => !prev);
-            setEditingCandidate(null);
-            setHistoryCandidate(null);
-          }}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
-        >
-          {showForm ? 'Закрити форму' : 'Додати кандидата'}
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => exportCandidatesToCsv(filteredData)}
+            className="rounded-lg border px-4 py-2 hover:bg-gray-100"
+            disabled={filteredData.length === 0}
+          >
+            Експорт CSV
+          </button>
+
+          <button
+            onClick={() => exportCandidatesToExcel(filteredData)}
+            className="rounded-lg border px-4 py-2 hover:bg-gray-100"
+            disabled={filteredData.length === 0}
+          >
+            Експорт Excel
+          </button>
+
+          <button
+            onClick={() => {
+              setShowForm((prev) => !prev);
+              setEditingCandidate(null);
+              setHistoryCandidate(null);
+            }}
+            className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+          >
+            {showForm ? 'Закрити форму' : 'Додати кандидата'}
+          </button>
+        </div>
       </div>
 
       {showForm && (
@@ -294,7 +324,8 @@ export default function CandidatesPage() {
                 <th className="px-4 py-3 text-left">Посада</th>
                 <th className="px-4 py-3 text-left">Підрозділ</th>
                 <th className="px-4 py-3 text-left">Статус</th>
-                <th className="px-4 py-3 text-left">Дата</th>
+                <th className="px-4 py-3 text-left">Дата звернення</th>
+                <th className="px-4 py-3 text-left">Дата зарахування</th>
                 <th className="px-4 py-3 text-left">Дії</th>
               </tr>
             </thead>
@@ -302,7 +333,14 @@ export default function CandidatesPage() {
             <tbody>
               {filteredData.map((candidate) => (
                 <tr key={candidate._id} className="border-t">
-                  <td className="px-4 py-3">{candidate.fullName}</td>
+                  <td className="px-4 py-3">
+                    <Link
+                      to={`/candidates/${candidate._id}`}
+                      className="font-medium text-blue-600 hover:underline"
+                    >
+                      {candidate.fullName}
+                    </Link>
+                  </td>
                   <td className="px-4 py-3">{candidate.age}</td>
                   <td className="px-4 py-3">{candidate.phone}</td>
                   <td className="px-4 py-3">{candidate.position}</td>
@@ -335,7 +373,18 @@ export default function CandidatesPage() {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    {new Date(candidate.createdAt).toLocaleDateString('uk-UA')}
+                    {candidate.dateOfContact
+                      ? new Date(candidate.dateOfContact).toLocaleDateString(
+                          'uk-UA'
+                        )
+                      : '—'}
+                  </td>
+                  <td className="px-4 py-3">
+                    {candidate.dateOfEnrollment
+                      ? new Date(candidate.dateOfEnrollment).toLocaleDateString(
+                          'uk-UA'
+                        )
+                      : '—'}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">

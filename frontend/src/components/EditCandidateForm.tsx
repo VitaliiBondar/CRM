@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { updateCandidate } from '../api/candidates';
 import type { Candidate } from '../types/candidate';
+import toast from 'react-hot-toast';
 
 const editCandidateSchema = z.object({
   fullName: z.string().min(3, 'Введи ПІБ'),
@@ -14,6 +15,8 @@ const editCandidateSchema = z.object({
   position: z.string().min(2, 'Вкажи посаду'),
   unit: z.string().min(2, 'Вкажи підрозділ'),
   status: z.enum(['in_work', 'documents', 'vlk', 'enrolled', 'declined']),
+  dateOfContact: z.string().min(1, 'Вкажи дату звернення'),
+  dateOfEnrollment: z.string().nullable(),
   notes: z.string().optional(),
 });
 
@@ -36,6 +39,7 @@ export default function EditCandidateForm({
     register,
     handleSubmit,
     formState: { errors },
+    watch,
   } = useForm<EditCandidateFormValues>({
     resolver: zodResolver(editCandidateSchema),
     defaultValues: {
@@ -46,26 +50,46 @@ export default function EditCandidateForm({
       position: candidate.position,
       unit: candidate.unit,
       status: candidate.status,
+      dateOfContact: candidate.dateOfContact
+        ? candidate.dateOfContact.slice(0, 10)
+        : '',
+      dateOfEnrollment: candidate.dateOfEnrollment
+        ? candidate.dateOfEnrollment.slice(0, 10)
+        : null,
       notes: candidate.notes ?? '',
     },
   });
+
+  const selectedStatus = watch('status');
 
   const mutation = useMutation({
     mutationFn: (data: EditCandidateFormValues) =>
       updateCandidate(candidate._id, {
         ...data,
+        dateOfEnrollment:
+          data.dateOfEnrollment && data.dateOfEnrollment.trim() !== ''
+            ? data.dateOfEnrollment
+            : null,
         notes: data.notes ?? '',
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['candidates'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-candidates'] });
+      toast.success('Дані кандидата оновлено');
       onSuccess?.();
+    },
+    onError: () => {
+      toast.error('Не вдалося оновити кандидата');
     },
   });
 
   const onSubmit: SubmitHandler<EditCandidateFormValues> = (data) => {
     mutation.mutate({
       ...data,
+      dateOfEnrollment:
+        data.dateOfEnrollment && data.dateOfEnrollment.trim() !== ''
+          ? data.dateOfEnrollment
+          : null,
       notes: data.notes ?? '',
     });
   };
@@ -164,6 +188,35 @@ export default function EditCandidateForm({
         )}
       </div>
 
+      <div>
+        <label className="mb-1 block text-sm font-medium">Дата звернення</label>
+        <input
+          type="date"
+          {...register('dateOfContact')}
+          className="w-full rounded-lg border px-3 py-2"
+        />
+        {errors.dateOfContact && (
+          <p className="mt-1 text-sm text-red-600">
+            {errors.dateOfContact.message}
+          </p>
+        )}
+      </div>
+
+      <div>
+        <label className="mb-1 block text-sm font-medium">
+          Дата зарахування
+        </label>
+        <input
+          type="date"
+          {...register('dateOfEnrollment')}
+          className="w-full rounded-lg border px-3 py-2"
+          disabled={selectedStatus !== 'enrolled'}
+        />
+        <p className="mt-1 text-xs text-gray-500">
+          Якщо статус змінити на "Зарахований", дата підставиться автоматично.
+        </p>
+      </div>
+
       <div className="md:col-span-2">
         <label className="mb-1 block text-sm font-medium">Нотатки</label>
         <textarea
@@ -188,10 +241,6 @@ export default function EditCandidateForm({
         >
           Скасувати
         </button>
-
-        {mutation.isError && (
-          <p className="self-center text-red-600">Помилка при оновленні</p>
-        )}
       </div>
     </form>
   );

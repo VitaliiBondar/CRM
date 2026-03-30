@@ -42,7 +42,7 @@ router.get("/", async (req, res) => {
       const endDate = new Date(startDate);
       endDate.setMonth(endDate.getMonth() + 1);
 
-      filter.createdAt = {
+      filter.dateOfContact = {
         $gte: startDate,
         $lt: endDate,
       };
@@ -80,12 +80,18 @@ router.get("/:id", async (req, res) => {
 // Створити кандидата
 router.post("/", async (req, res) => {
   try {
+    const initialStatus = req.body.status ?? "in_work";
+
     const candidate = await Candidate.create({
       ...req.body,
+      dateOfEnrollment:
+        initialStatus === "enrolled"
+          ? req.body.dateOfEnrollment || new Date()
+          : null,
       statusHistory: [
         {
           fromStatus: null,
-          toStatus: req.body.status ?? "in_work",
+          toStatus: initialStatus,
           changedAt: new Date(),
         },
       ],
@@ -110,16 +116,25 @@ router.put("/:id", async (req, res) => {
     }
 
     const previousStatus = existingCandidate.status;
-    const nextStatus = req.body.status;
+    const nextStatus = req.body.status ?? existingCandidate.status;
 
     Object.assign(existingCandidate, req.body);
 
-    if (nextStatus && nextStatus !== previousStatus) {
+    if (nextStatus !== previousStatus) {
       existingCandidate.statusHistory.push({
         fromStatus: previousStatus,
         toStatus: nextStatus,
         changedAt: new Date(),
       });
+    }
+
+    // Автоматична логіка дати зарахування
+    if (nextStatus === "enrolled") {
+      if (!existingCandidate.dateOfEnrollment) {
+        existingCandidate.dateOfEnrollment = new Date();
+      }
+    } else {
+      existingCandidate.dateOfEnrollment = null;
     }
 
     await existingCandidate.save();

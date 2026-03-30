@@ -4,6 +4,7 @@ import { useForm, type SubmitHandler } from 'react-hook-form';
 import { useMutation } from '@tanstack/react-query';
 import { login } from '../api/auth';
 import { saveAuth } from '../utils/auth';
+import toast from 'react-hot-toast';
 
 type LoginFormValues = {
   email: string;
@@ -28,7 +29,11 @@ export default function LoginPage() {
     mutationFn: login,
     onSuccess: (data) => {
       saveAuth(data.token, data.user);
+      toast.success('Вхід виконано успішно');
       navigate('/dashboard');
+    },
+    onError: () => {
+      toast.error('Невірний email або пароль');
     },
   });
 
@@ -76,10 +81,6 @@ export default function LoginPage() {
           >
             {mutation.isPending ? 'Вхід...' : 'Увійти'}
           </button>
-
-          {mutation.isError && (
-            <p className="text-sm text-red-600">Помилка авторизації</p>
-          )}
         </form>
       </div>
     </div>
