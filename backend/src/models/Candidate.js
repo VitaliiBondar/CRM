@@ -1,4 +1,24 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
+
+const statusHistorySchema = new mongoose.Schema(
+  {
+    fromStatus: {
+      type: String,
+      enum: ["in_work", "documents", "vlk", "enrolled", "declined"],
+      default: null,
+    },
+    toStatus: {
+      type: String,
+      enum: ["in_work", "documents", "vlk", "enrolled", "declined"],
+      required: true,
+    },
+    changedAt: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  { _id: false },
+);
 
 const candidateSchema = new mongoose.Schema(
   {
@@ -33,18 +53,22 @@ const candidateSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['in_work', 'documents', 'vlk', 'enrolled', 'declined'],
-      default: 'in_work',
+      enum: ["in_work", "documents", "vlk", "enrolled", "declined"],
+      default: "in_work",
     },
     notes: {
       type: String,
-      default: '',
+      default: "",
       trim: true,
+    },
+    statusHistory: {
+      type: [statusHistorySchema],
+      default: [],
     },
   },
   {
     timestamps: true,
-  }
+  },
 );
 
-export const Candidate = mongoose.model('Candidate', candidateSchema);
+export const Candidate = mongoose.model("Candidate", candidateSchema);

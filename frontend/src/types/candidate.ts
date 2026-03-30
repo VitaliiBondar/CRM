@@ -5,6 +5,12 @@ export type CandidateStatus =
   | 'enrolled'
   | 'declined';
 
+export type CandidateStatusHistoryItem = {
+  fromStatus: CandidateStatus | null;
+  toStatus: CandidateStatus;
+  changedAt: string;
+};
+
 export type Candidate = {
   _id: string;
   fullName: string;
@@ -15,6 +21,7 @@ export type Candidate = {
   unit: string;
   status: CandidateStatus;
   notes: string;
+  statusHistory: CandidateStatusHistoryItem[];
   createdAt: string;
   updatedAt: string;
 };

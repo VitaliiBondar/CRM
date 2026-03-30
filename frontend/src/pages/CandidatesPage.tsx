@@ -1,25 +1,82 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getCandidates, updateCandidateStatus } from '../api/candidates';
+import {
+  deleteCandidate,
+  getCandidates,
+  updateCandidateStatus,
+} from '../api/candidates';
 import CandidateForm from '../components/CandidateForm';
+import EditCandidateForm from '../components/EditCandidateForm';
+import CandidateStatusHistory from '../components/CandidateStatusHistory';
 import {
   candidateStatusClasses,
   candidateStatusLabels,
 } from '../utils/candidateStatus';
-import type { CandidateStatus } from '../types/candidate';
+import type { Candidate, CandidateStatus } from '../types/candidate';
 
 export default function CandidatesPage() {
   const queryClient = useQueryClient();
 
   const [showForm, setShowForm] = useState(false);
+  const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(
+    null
+  );
+  const [historyCandidate, setHistoryCandidate] = useState<Candidate | null>(
+    null
+  );
+  const [searchTerm, setSearchTerm] = useState('');
+  const [monthFilter, setMonthFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [positionFilter, setPositionFilter] = useState<string>('all');
   const [unitFilter, setUnitFilter] = useState<string>('all');
   const [ageFilter, setAgeFilter] = useState<string>('all');
 
+  const apiFilters = useMemo(() => {
+    const filters: {
+      month?: string;
+      status?: string;
+      position?: string;
+      unit?: string;
+      minAge?: number;
+      maxAge?: number;
+    } = {};
+
+    if (monthFilter) {
+      filters.month = monthFilter;
+    }
+
+    if (statusFilter !== 'all') {
+      filters.status = statusFilter;
+    }
+
+    if (positionFilter !== 'all') {
+      filters.position = positionFilter;
+    }
+
+    if (unitFilter !== 'all') {
+      filters.unit = unitFilter;
+    }
+
+    if (ageFilter === '18-25') {
+      filters.minAge = 18;
+      filters.maxAge = 25;
+    }
+
+    if (ageFilter === '26-35') {
+      filters.minAge = 26;
+      filters.maxAge = 35;
+    }
+
+    if (ageFilter === '36+') {
+      filters.minAge = 36;
+    }
+
+    return filters;
+  }, [monthFilter, statusFilter, positionFilter, unitFilter, ageFilter]);
+
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['candidates'],
-    queryFn: getCandidates,
+    queryKey: ['candidates', apiFilters],
+    queryFn: () => getCandidates(apiFilters),
   });
 
   const statusMutation = useMutation({
@@ -32,32 +89,47 @@ export default function CandidatesPage() {
     }) => updateCandidateStatus(candidateId, status),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['candidates'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-candidates'] });
     },
   });
 
-  const filteredData = (data ?? [])
-    .filter((candidate) =>
-      statusFilter === 'all' ? true : candidate.status === statusFilter
-    )
-    .filter((candidate) =>
-      positionFilter === 'all' ? true : candidate.position === positionFilter
-    )
-    .filter((candidate) =>
-      unitFilter === 'all' ? true : candidate.unit === unitFilter
-    )
-    .filter((candidate) => {
-      if (ageFilter === 'all') return true;
-      if (ageFilter === '18-25') {
-        return candidate.age >= 18 && candidate.age <= 25;
-      }
-      if (ageFilter === '26-35') {
-        return candidate.age >= 26 && candidate.age <= 35;
-      }
-      if (ageFilter === '36+') {
-        return candidate.age >= 36;
-      }
-      return true;
+  const deleteMutation = useMutation({
+    mutationFn: (candidateId: string) => deleteCandidate(candidateId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['candidates'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-candidates'] });
+      setEditingCandidate(null);
+      setHistoryCandidate(null);
+    },
+  });
+
+  const filteredData = useMemo(() => {
+    const candidates = data ?? [];
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+
+    if (!normalizedSearch) {
+      return candidates;
+    }
+
+    return candidates.filter((candidate) => {
+      return (
+        candidate.fullName.toLowerCase().includes(normalizedSearch) ||
+        candidate.phone.toLowerCase().includes(normalizedSearch)
+      );
     });
+  }, [data, searchTerm]);
+
+  const handleDelete = (candidateId: string, candidateName: string) => {
+    const confirmed = window.confirm(
+      `Точно видалити кандидата "${candidateName}"?`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    deleteMutation.mutate(candidateId);
+  };
 
   return (
     <div>
@@ -65,7 +137,11 @@ export default function CandidatesPage() {
         <h2 className="text-2xl font-bold">Кандидати</h2>
 
         <button
-          onClick={() => setShowForm((prev) => !prev)}
+          onClick={() => {
+            setShowForm((prev) => !prev);
+            setEditingCandidate(null);
+            setHistoryCandidate(null);
+          }}
           className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
         >
           {showForm ? 'Закрити форму' : 'Додати кандидата'}
@@ -78,7 +154,52 @@ export default function CandidatesPage() {
         </div>
       )}
 
+      {editingCandidate && (
+        <div className="mb-6 rounded-xl bg-white p-5 shadow">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Редагування кандидата</h3>
+
+            <button
+              onClick={() => setEditingCandidate(null)}
+              className="rounded border px-3 py-2 hover:bg-gray-100"
+            >
+              Закрити
+            </button>
+          </div>
+
+          <EditCandidateForm
+            candidate={editingCandidate}
+            onSuccess={() => setEditingCandidate(null)}
+            onCancel={() => setEditingCandidate(null)}
+          />
+        </div>
+      )}
+
+      {historyCandidate && (
+        <div className="mb-6">
+          <CandidateStatusHistory
+            candidate={historyCandidate}
+            onClose={() => setHistoryCandidate(null)}
+          />
+        </div>
+      )}
+
       <div className="mb-6 flex flex-wrap gap-4">
+        <input
+          type="text"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Пошук по ПІБ або телефону"
+          className="min-w-[240px] rounded border px-3 py-2"
+        />
+
+        <input
+          type="month"
+          value={monthFilter}
+          onChange={(e) => setMonthFilter(e.target.value)}
+          className="rounded border px-3 py-2"
+        />
+
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
@@ -132,6 +253,20 @@ export default function CandidatesPage() {
           <option value="26-35">26–35</option>
           <option value="36+">36+</option>
         </select>
+
+        <button
+          onClick={() => {
+            setSearchTerm('');
+            setMonthFilter('');
+            setStatusFilter('all');
+            setPositionFilter('all');
+            setUnitFilter('all');
+            setAgeFilter('all');
+          }}
+          className="rounded border px-3 py-2 hover:bg-gray-100"
+        >
+          Скинути фільтри
+        </button>
       </div>
 
       <div className="overflow-hidden rounded-xl bg-white shadow">
@@ -143,11 +278,13 @@ export default function CandidatesPage() {
           </div>
         )}
 
-        {!isLoading && !isError && filteredData.length === 0 && (
-          <div className="p-4 text-gray-500">Кандидатів не знайдено</div>
-        )}
+        {!isLoading &&
+          !isError &&
+          (!filteredData || filteredData.length === 0) && (
+            <div className="p-4 text-gray-500">Кандидатів не знайдено</div>
+          )}
 
-        {!isLoading && !isError && filteredData.length > 0 && (
+        {!isLoading && !isError && filteredData && filteredData.length > 0 && (
           <table className="w-full text-sm">
             <thead className="bg-gray-100">
               <tr>
@@ -157,6 +294,8 @@ export default function CandidatesPage() {
                 <th className="px-4 py-3 text-left">Посада</th>
                 <th className="px-4 py-3 text-left">Підрозділ</th>
                 <th className="px-4 py-3 text-left">Статус</th>
+                <th className="px-4 py-3 text-left">Дата</th>
+                <th className="px-4 py-3 text-left">Дії</th>
               </tr>
             </thead>
 
@@ -193,6 +332,44 @@ export default function CandidatesPage() {
                         <option value="enrolled">Зарахований</option>
                         <option value="declined">Відмовився</option>
                       </select>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    {new Date(candidate.createdAt).toLocaleDateString('uk-UA')}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          setEditingCandidate(candidate);
+                          setShowForm(false);
+                          setHistoryCandidate(null);
+                        }}
+                        className="rounded border px-3 py-1 text-sm hover:bg-gray-100"
+                      >
+                        Редагувати
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setHistoryCandidate(candidate);
+                          setShowForm(false);
+                          setEditingCandidate(null);
+                        }}
+                        className="rounded border px-3 py-1 text-sm hover:bg-gray-100"
+                      >
+                        Історія
+                      </button>
+
+                      <button
+                        onClick={() =>
+                          handleDelete(candidate._id, candidate.fullName)
+                        }
+                        className="rounded border border-red-300 px-3 py-1 text-sm text-red-600 hover:bg-red-50"
+                        disabled={deleteMutation.isPending}
+                      >
+                        Видалити
+                      </button>
                     </div>
                   </td>
                 </tr>

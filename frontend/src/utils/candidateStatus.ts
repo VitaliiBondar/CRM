@@ -15,3 +15,13 @@ export const candidateStatusClasses: Record<CandidateStatus, string> = {
   enrolled: 'bg-green-100 text-green-700',
   declined: 'bg-red-100 text-red-700',
 };
+
+export const getCandidateStatusLabel = (
+  status: CandidateStatus | null
+): string => {
+  if (!status) {
+    return 'Не вказано';
+  }
+
+  return candidateStatusLabels[status];
+};
