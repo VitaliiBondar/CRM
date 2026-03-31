@@ -2,10 +2,12 @@ import React from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
+import RoleProtectedRoute from './components/RoleProtectedRoute';
 import DashboardPage from './pages/DashboardPage';
 import CandidatesPage from './pages/CandidatesPage';
 import CandidateDetailsPage from './pages/CandidateDetailsPage';
 import LoginPage from './pages/LoginPage';
+import UsersPage from './pages/UsersPage';
 
 export default function App() {
   return (
@@ -23,6 +25,15 @@ export default function App() {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/candidates" element={<CandidatesPage />} />
         <Route path="/candidates/:id" element={<CandidateDetailsPage />} />
+
+        <Route
+          path="/users"
+          element={
+            <RoleProtectedRoute allowedRoles={['admin']}>
+              <UsersPage />
+            </RoleProtectedRoute>
+          }
+        />
       </Route>
     </Routes>
   );

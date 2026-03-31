@@ -135,7 +135,7 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-2xl font-bold">Дашборд</h2>
 
         <div className="flex items-center gap-3">

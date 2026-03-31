@@ -1,6 +1,7 @@
 import express from "express";
 import { Candidate } from "../models/Candidate.js";
 import { authMiddleware } from "../middlewares/authMiddleware.js";
+import { allowRoles } from "../middlewares/roleMiddleware.js";
 
 const router = express.Router();
 
@@ -149,7 +150,7 @@ router.put("/:id", async (req, res) => {
 });
 
 // Видалити кандидата
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", allowRoles("admin"), async (req, res) => {
   try {
     const candidate = await Candidate.findByIdAndDelete(req.params.id);
 

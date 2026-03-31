@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getCandidateById } from '../api/candidates';
 import CandidateStatusHistory from '../components/CandidateStatusHistory';
+import CandidateNotes from '../components/CandidateNotes';
 import { getCandidateStatusLabel } from '../utils/candidateStatus';
 
 export default function CandidateDetailsPage() {
@@ -143,6 +144,7 @@ export default function CandidateDetailsPage() {
       </div>
 
       <CandidateStatusHistory candidate={data} />
+      <CandidateNotes candidateId={data._id} />
     </div>
   );
 }

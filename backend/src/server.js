@@ -4,6 +4,8 @@ import cors from "cors";
 import dotenv from "dotenv";
 import candidateRoutes from "./routes/candidateRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
+import notesRoutes from "./routes/notes.routes.js";
+import userRoutes from "./routes/userRoutes.js";
 
 dotenv.config();
 
@@ -14,6 +16,8 @@ app.use(express.json());
 
 app.use("/api/auth", authRoutes);
 app.use("/api/candidates", candidateRoutes);
+app.use("/api/notes", notesRoutes);
+app.use("/api/users", userRoutes);
 
 app.get("/api/health", (req, res) => {
   res.json({ message: "Backend works" });
