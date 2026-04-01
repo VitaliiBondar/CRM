@@ -32,6 +32,7 @@ export default function CandidatesPage() {
     null
   );
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [monthFilter, setMonthFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [positionFilter, setPositionFilter] = useState<string>('all');
@@ -121,7 +122,7 @@ export default function CandidatesPage() {
 
   const filteredData = useMemo(() => {
     const candidates = data ?? [];
-    const normalizedSearch = searchTerm.trim().toLowerCase();
+    const normalizedSearch = debouncedSearch.trim().toLowerCase();
 
     if (!normalizedSearch) {
       return candidates;
@@ -133,12 +134,27 @@ export default function CandidatesPage() {
         candidate.phone.toLowerCase().includes(normalizedSearch)
       );
     });
-  }, [data, searchTerm]);
+  }, [data, debouncedSearch]);
 
   const totalPages = Math.max(
     1,
     Math.ceil(filteredData.length / ITEMS_PER_PAGE)
   );
+
+  const [showFilters, setShowFilters] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+
+  React.useEffect(() => {
+    const handleClickOutside = () => {
+      setShowExportMenu(false);
+    };
+
+    window.addEventListener('click', handleClickOutside);
+
+    return () => {
+      window.removeEventListener('click', handleClickOutside);
+    };
+  }, []);
 
   const paginatedData = useMemo(() => {
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -189,27 +205,57 @@ export default function CandidatesPage() {
     }
   }, [currentPage, totalPages]);
 
+  React.useEffect(() => {
+    const timeout = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 400);
+
+    return () => clearTimeout(timeout);
+  }, [searchTerm]);
+
   return (
     <div>
       <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <h2 className="text-2xl font-bold">Кандидати</h2>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-          <button
-            onClick={() => exportCandidatesToCsv(filteredData)}
-            className="rounded-lg border px-4 py-2 hover:bg-gray-100"
-            disabled={filteredData.length === 0}
-          >
-            Експорт CSV
-          </button>
+          <div className="relative">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowExportMenu((prev) => !prev);
+              }}
+              className="rounded-lg border px-4 py-2 hover:bg-gray-100 flex items-center gap-2"
+              disabled={filteredData.length === 0}
+            >
+              📤 Експорт
+              <span className="text-xs">{showExportMenu ? '▲' : '▼'}</span>
+            </button>
 
-          <button
-            onClick={() => exportCandidatesToExcel(filteredData)}
-            className="rounded-lg border px-4 py-2 hover:bg-gray-100"
-            disabled={filteredData.length === 0}
-          >
-            Експорт Excel
-          </button>
+            {showExportMenu && (
+              <div className="absolute right-0 mt-2 w-40 rounded-lg border bg-white shadow-lg z-10">
+                <button
+                  onClick={() => {
+                    exportCandidatesToCsv(filteredData);
+                    setShowExportMenu(false);
+                  }}
+                  className="w-full px-4 py-2 text-left hover:bg-gray-100"
+                >
+                  CSV
+                </button>
+
+                <button
+                  onClick={() => {
+                    exportCandidatesToExcel(filteredData);
+                    setShowExportMenu(false);
+                  }}
+                  className="w-full px-4 py-2 text-left hover:bg-gray-100"
+                >
+                  Excel
+                </button>
+              </div>
+            )}
+          </div>
 
           <button
             onClick={() => {
@@ -260,82 +306,109 @@ export default function CandidatesPage() {
         </div>
       )}
 
-      <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <input
-          type="text"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Пошук по ПІБ або телефону"
-          className="min-w-[240px] rounded border px-3 py-2 w-full"
-        />
-
-        <input
-          type="month"
-          value={monthFilter}
-          onChange={(e) => setMonthFilter(e.target.value)}
-          className="rounded border px-3 py-2  w-full"
-        />
-
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="rounded border px-3 py-2 w-full"
-        >
-          <option value="all">Усі статуси</option>
-          <option value="in_work">В роботі</option>
-          <option value="documents">Збір документів</option>
-          <option value="vlk">ВЛК</option>
-          <option value="enrolled">Зарахований</option>
-          <option value="declined">Відмовився</option>
-        </select>
-
-        <select
-          value={positionFilter}
-          onChange={(e) => setPositionFilter(e.target.value)}
-          className="rounded border px-3 py-2 w-full"
-        >
-          <option value="all">Усі посади</option>
-          {[
-            ...new Set((data ?? []).map((candidate) => candidate.position)),
-          ].map((position) => (
-            <option key={position} value={position}>
-              {position}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={unitFilter}
-          onChange={(e) => setUnitFilter(e.target.value)}
-          className="rounded border px-3 py-2 w-full"
-        >
-          <option value="all">Усі підрозділи</option>
-          {[...new Set((data ?? []).map((candidate) => candidate.unit))].map(
-            (unit) => (
-              <option key={unit} value={unit}>
-                {unit}
-              </option>
-            )
-          )}
-        </select>
-
-        <select
-          value={ageFilter}
-          onChange={(e) => setAgeFilter(e.target.value)}
-          className="rounded border px-3 py-2 w-full"
-        >
-          <option value="all">Вік</option>
-          <option value="18-25">18–25</option>
-          <option value="26-35">26–35</option>
-          <option value="36+">36+</option>
-        </select>
-
+      {/* FILTERS TOGGLE */}
+      <div className="mb-4 flex items-center justify-between">
         <button
-          onClick={resetFilters}
-          className="rounded border px-3 py-2 hover:bg-gray-100  w-full"
+          onClick={() => setShowFilters((prev) => !prev)}
+          className="flex items-center gap-2 rounded-lg border px-4 py-2 hover:bg-gray-100"
         >
-          Скинути фільтри
+          🔍 Фільтри
+          <span className="text-sm text-gray-500">
+            {showFilters ? '▲' : '▼'}
+          </span>
         </button>
+
+        {(searchTerm ||
+          monthFilter ||
+          statusFilter !== 'all' ||
+          positionFilter !== 'all' ||
+          unitFilter !== 'all' ||
+          ageFilter !== 'all') && (
+          <button
+            onClick={resetFilters}
+            className="text-sm text-red-600 hover:underline"
+          >
+            Скинути
+          </button>
+        )}
+      </div>
+
+      {/* FILTERS CONTENT */}
+      <div
+        className={`transition-all duration-300 overflow-hidden ${
+          showFilters ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
+        }`}
+      >
+        <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 bg-white p-4 rounded-xl shadow">
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Пошук по ПІБ або телефону"
+            className="w-full rounded border px-3 py-2"
+          />
+
+          <input
+            type="month"
+            value={monthFilter}
+            onChange={(e) => setMonthFilter(e.target.value)}
+            className="w-full rounded border px-3 py-2"
+          />
+
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="w-full rounded border px-3 py-2"
+          >
+            <option value="all">Усі статуси</option>
+            <option value="in_work">В роботі</option>
+            <option value="documents">Збір документів</option>
+            <option value="vlk">ВЛК</option>
+            <option value="enrolled">Зарахований</option>
+            <option value="declined">Відмовився</option>
+          </select>
+
+          <select
+            value={positionFilter}
+            onChange={(e) => setPositionFilter(e.target.value)}
+            className="w-full rounded border px-3 py-2"
+          >
+            <option value="all">Усі посади</option>
+            {[
+              ...new Set((data ?? []).map((candidate) => candidate.position)),
+            ].map((position) => (
+              <option key={position} value={position}>
+                {position}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={unitFilter}
+            onChange={(e) => setUnitFilter(e.target.value)}
+            className="w-full rounded border px-3 py-2"
+          >
+            <option value="all">Усі підрозділи</option>
+            {[...new Set((data ?? []).map((candidate) => candidate.unit))].map(
+              (unit) => (
+                <option key={unit} value={unit}>
+                  {unit}
+                </option>
+              )
+            )}
+          </select>
+
+          <select
+            value={ageFilter}
+            onChange={(e) => setAgeFilter(e.target.value)}
+            className="w-full rounded border px-3 py-2"
+          >
+            <option value="all">Вік</option>
+            <option value="18-25">18–25</option>
+            <option value="26-35">26–35</option>
+            <option value="36+">36+</option>
+          </select>
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-xl bg-white shadow">
@@ -353,121 +426,194 @@ export default function CandidatesPage() {
 
         {!isLoading && !isError && filteredData.length > 0 && (
           <>
-            <div className="overflow-x-auto">
-              <table className="min-w-[1200px] w-full text-sm">
-                <thead className="bg-gray-100">
-                  <tr>
-                    <th className="px-4 py-3 text-left">ПІБ</th>
-                    <th className="px-4 py-3 text-left">Вік</th>
-                    <th className="px-4 py-3 text-left">Телефон</th>
-                    <th className="px-4 py-3 text-left">Посада</th>
-                    <th className="px-4 py-3 text-left">Підрозділ</th>
-                    <th className="px-4 py-3 text-left">Статус</th>
-                    <th className="px-4 py-3 text-left">Дата звернення</th>
-                    <th className="px-4 py-3 text-left">Дата зарахування</th>
-                    <th className="px-4 py-3 text-left">Дії</th>
-                  </tr>
-                </thead>
+            {/* MOBILE VIEW */}
+            <div className="md:hidden space-y-4 p-4">
+              {paginatedData.map((candidate) => (
+                <div
+                  key={candidate._id}
+                  className="rounded-xl bg-white p-4 shadow"
+                >
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="font-semibold">{candidate.fullName}</div>
 
-                <tbody>
-                  {paginatedData.map((candidate) => (
-                    <tr key={candidate._id} className="border-t">
-                      <td className="px-4 py-3">
-                        <Link
-                          to={`/candidates/${candidate._id}`}
-                          className="font-medium text-blue-600 hover:underline"
-                        >
-                          {candidate.fullName}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-3">{candidate.age}</td>
-                      <td className="px-4 py-3">{candidate.phone}</td>
-                      <td className="px-4 py-3">{candidate.position}</td>
-                      <td className="px-4 py-3">{candidate.unit}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${candidateStatusClasses[candidate.status]}`}
-                          >
-                            {candidateStatusLabels[candidate.status]}
-                          </span>
+                    <span
+                      className={`rounded-full px-2 py-1 text-xs ${candidateStatusClasses[candidate.status]}`}
+                    >
+                      {candidateStatusLabels[candidate.status]}
+                    </span>
+                  </div>
 
-                          <select
-                            value={candidate.status}
-                            onChange={(e) =>
-                              statusMutation.mutate({
-                                candidateId: candidate._id,
-                                status: e.target.value as CandidateStatus,
-                              })
-                            }
-                            className="rounded border px-2 py-1 text-xs"
-                            disabled={statusMutation.isPending}
-                          >
-                            <option value="in_work">В роботі</option>
-                            <option value="documents">Збір документів</option>
-                            <option value="vlk">ВЛК</option>
-                            <option value="enrolled">Зарахований</option>
-                            <option value="declined">Відмовився</option>
-                          </select>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        {candidate.dateOfContact
-                          ? new Date(
-                              candidate.dateOfContact
-                            ).toLocaleDateString('uk-UA')
-                          : '—'}
-                      </td>
-                      <td className="px-4 py-3">
-                        {candidate.dateOfEnrollment
-                          ? new Date(
-                              candidate.dateOfEnrollment
-                            ).toLocaleDateString('uk-UA')
-                          : '—'}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            onClick={() => {
-                              setEditingCandidate(candidate);
-                              setShowForm(false);
-                              setHistoryCandidate(null);
-                            }}
-                            className="rounded border px-3 py-1 text-sm hover:bg-gray-100"
-                          >
-                            Редагувати
-                          </button>
+                  <div className="text-sm text-gray-600 space-y-1">
+                    <div>📞 {candidate.phone}</div>
+                    <div>🎯 {candidate.position}</div>
+                    <div>🏢 {candidate.unit}</div>
+                    <div>🎂 {candidate.age} років</div>
+                  </div>
 
-                          <button
-                            onClick={() => {
-                              setHistoryCandidate(candidate);
-                              setShowForm(false);
-                              setEditingCandidate(null);
-                            }}
-                            className="rounded border px-3 py-1 text-sm hover:bg-gray-100"
-                          >
-                            Історія
-                          </button>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      onClick={() => {
+                        setEditingCandidate(candidate);
+                        setShowForm(false);
+                        setHistoryCandidate(null);
+                      }}
+                      className="rounded border px-2 py-1 text-xs"
+                    >
+                      Редагувати
+                    </button>
 
-                          {isAdmin() && (
-                            <button
-                              onClick={() =>
-                                handleDelete(candidate._id, candidate.fullName)
-                              }
-                              className="rounded border border-red-300 px-3 py-1 text-sm text-red-600 hover:bg-red-50"
-                              disabled={deleteMutation.isPending}
-                            >
-                              Видалити
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                    <button
+                      onClick={() => {
+                        setHistoryCandidate(candidate);
+                        setShowForm(false);
+                        setEditingCandidate(null);
+                      }}
+                      className="rounded border px-2 py-1 text-xs"
+                    >
+                      Історія
+                    </button>
+
+                    {isAdmin() && (
+                      <button
+                        onClick={() =>
+                          handleDelete(candidate._id, candidate.fullName)
+                        }
+                        className="rounded border border-red-300 px-2 py-1 text-xs text-red-600"
+                      >
+                        Видалити
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
 
+            {/* DESKTOP TABLE */}
+            <div className="hidden md:block">
+              <div className="overflow-x-auto">
+                <table className="min-w-[1200px] w-full text-sm">
+                  <thead className="bg-gray-100">
+                    <tr>
+                      <th className="px-4 py-3 text-left">ПІБ</th>
+                      <th className="px-4 py-3 text-left">Вік</th>
+                      <th className="px-4 py-3 text-left">Телефон</th>
+                      <th className="px-4 py-3 text-left">Посада</th>
+                      <th className="px-4 py-3 text-left">Підрозділ</th>
+                      <th className="px-4 py-3 text-left">Статус</th>
+                      <th className="px-4 py-3 text-left">Дата звернення</th>
+                      <th className="px-4 py-3 text-left">Дата зарахування</th>
+                      <th className="px-4 py-3 text-left">Дії</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {paginatedData.map((candidate) => (
+                      <tr key={candidate._id} className="border-t">
+                        <td className="px-4 py-3">
+                          <Link
+                            to={`/candidates/${candidate._id}`}
+                            className="font-medium text-blue-600 hover:underline"
+                          >
+                            {candidate.fullName}
+                          </Link>
+                        </td>
+                        <td className="px-4 py-3">{candidate.age}</td>
+                        <td className="px-4 py-3">{candidate.phone}</td>
+                        <td className="px-4 py-3">{candidate.position}</td>
+                        <td className="px-4 py-3">{candidate.unit}</td>
+
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${candidateStatusClasses[candidate.status]}`}
+                            >
+                              {candidateStatusLabels[candidate.status]}
+                            </span>
+
+                            <select
+                              value={candidate.status}
+                              onChange={(e) =>
+                                statusMutation.mutate({
+                                  candidateId: candidate._id,
+                                  status: e.target.value as CandidateStatus,
+                                })
+                              }
+                              className="rounded border px-2 py-1 text-xs"
+                              disabled={statusMutation.isPending}
+                            >
+                              <option value="in_work">В роботі</option>
+                              <option value="documents">Збір документів</option>
+                              <option value="vlk">ВЛК</option>
+                              <option value="enrolled">Зарахований</option>
+                              <option value="declined">Відмовився</option>
+                            </select>
+                          </div>
+                        </td>
+
+                        <td className="px-4 py-3">
+                          {candidate.dateOfContact
+                            ? new Date(
+                                candidate.dateOfContact
+                              ).toLocaleDateString('uk-UA')
+                            : '—'}
+                        </td>
+
+                        <td className="px-4 py-3">
+                          {candidate.dateOfEnrollment
+                            ? new Date(
+                                candidate.dateOfEnrollment
+                              ).toLocaleDateString('uk-UA')
+                            : '—'}
+                        </td>
+
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              onClick={() => {
+                                setEditingCandidate(candidate);
+                                setShowForm(false);
+                                setHistoryCandidate(null);
+                              }}
+                              className="rounded border px-3 py-1 text-sm hover:bg-gray-100"
+                            >
+                              Редагувати
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                setHistoryCandidate(candidate);
+                                setShowForm(false);
+                                setEditingCandidate(null);
+                              }}
+                              className="rounded border px-3 py-1 text-sm hover:bg-gray-100"
+                            >
+                              Історія
+                            </button>
+
+                            {isAdmin() && (
+                              <button
+                                onClick={() =>
+                                  handleDelete(
+                                    candidate._id,
+                                    candidate.fullName
+                                  )
+                                }
+                                className="rounded border border-red-300 px-3 py-1 text-sm text-red-600 hover:bg-red-50"
+                                disabled={deleteMutation.isPending}
+                              >
+                                Видалити
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* PAGINATION */}
             <div className="flex items-center justify-between border-t px-4 py-3">
               <p className="text-sm text-gray-500">
                 Показано {(currentPage - 1) * ITEMS_PER_PAGE + 1}–
