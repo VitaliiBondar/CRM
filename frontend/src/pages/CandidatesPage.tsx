@@ -18,6 +18,7 @@ import {
   candidateStatusLabels,
 } from '../utils/candidateStatus';
 import type { Candidate, CandidateStatus } from '../types/candidate';
+import { Pencil, Trash2, History } from 'lucide-react';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -51,7 +52,8 @@ export default function CandidatesPage() {
     } = {};
 
     if (monthFilter) {
-      filters.month = monthFilter;
+      const year = new Date().getFullYear();
+      filters.month = `${year}-${monthFilter}`;
     }
 
     if (statusFilter !== 'all') {
@@ -140,6 +142,20 @@ export default function CandidatesPage() {
     1,
     Math.ceil(filteredData.length / ITEMS_PER_PAGE)
   );
+  const months = [
+    { label: 'Січень', value: '01' },
+    { label: 'Лютий', value: '02' },
+    { label: 'Березень', value: '03' },
+    { label: 'Квітень', value: '04' },
+    { label: 'Травень', value: '05' },
+    { label: 'Червень', value: '06' },
+    { label: 'Липень', value: '07' },
+    { label: 'Серпень', value: '08' },
+    { label: 'Вересень', value: '09' },
+    { label: 'Жовтень', value: '10' },
+    { label: 'Листопад', value: '11' },
+    { label: 'Грудень', value: '12' },
+  ];
 
   const [showFilters, setShowFilters] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
@@ -348,12 +364,18 @@ export default function CandidatesPage() {
             className="w-full rounded border px-3 py-2"
           />
 
-          <input
-            type="month"
+          <select
             value={monthFilter}
             onChange={(e) => setMonthFilter(e.target.value)}
-            className="w-full rounded border px-3 py-2"
-          />
+            className="rounded border px-3 py-2 w-full"
+          >
+            <option value="">Усі місяці</option>
+            {months.map((m) => (
+              <option key={m.value} value={m.value}>
+                {m.label}
+              </option>
+            ))}
+          </select>
 
           <select
             value={statusFilter}
@@ -410,6 +432,13 @@ export default function CandidatesPage() {
           </select>
         </div>
       </div>
+      {monthFilter && (
+        <div className="mb-4">
+          <span className="inline-flex items-center gap-2 rounded-full bg-blue-100 px-4 py-1 text-sm font-medium text-blue-700">
+            Місяць: {months.find((m) => m.value === monthFilter)?.label}
+          </span>
+        </div>
+      )}
 
       <div className="overflow-hidden rounded-xl bg-white shadow">
         {isLoading && <div className="p-4 text-gray-500">Завантаження...</div>}
@@ -524,11 +553,11 @@ export default function CandidatesPage() {
 
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
-                            <span
+                            {/* <span
                               className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${candidateStatusClasses[candidate.status]}`}
                             >
                               {candidateStatusLabels[candidate.status]}
-                            </span>
+                            </span> */}
 
                             <select
                               value={candidate.status}
@@ -538,7 +567,7 @@ export default function CandidatesPage() {
                                   status: e.target.value as CandidateStatus,
                                 })
                               }
-                              className="rounded border px-2 py-1 text-xs"
+                              className={`appearance-none rounded-full px-3 py-1 text-xs font-medium cursor-pointer transition hover:opacity-80 min-w-[110px] ${candidateStatusClasses[candidate.status]}`}
                               disabled={statusMutation.isPending}
                             >
                               <option value="in_work">В роботі</option>
@@ -567,29 +596,34 @@ export default function CandidatesPage() {
                         </td>
 
                         <td className="px-4 py-3">
-                          <div className="flex flex-wrap gap-2">
+                          <div className="flex items-center gap-2">
+                            {/* EDIT */}
                             <button
                               onClick={() => {
                                 setEditingCandidate(candidate);
                                 setShowForm(false);
                                 setHistoryCandidate(null);
                               }}
-                              className="rounded border px-3 py-1 text-sm hover:bg-gray-100"
+                              className="p-2 rounded transition hover:bg-gray-100"
+                              title="Редагувати"
                             >
-                              Редагувати
+                              <Pencil size={16} />
                             </button>
 
+                            {/* HISTORY */}
                             <button
                               onClick={() => {
                                 setHistoryCandidate(candidate);
                                 setShowForm(false);
                                 setEditingCandidate(null);
                               }}
-                              className="rounded border px-3 py-1 text-sm hover:bg-gray-100"
+                              className="p-2 rounded transition hover:bg-gray-100"
+                              title="Історія"
                             >
-                              Історія
+                              <History size={16} />
                             </button>
 
+                            {/* DELETE */}
                             {isAdmin() && (
                               <button
                                 onClick={() =>
@@ -598,10 +632,11 @@ export default function CandidatesPage() {
                                     candidate.fullName
                                   )
                                 }
-                                className="rounded border border-red-300 px-3 py-1 text-sm text-red-600 hover:bg-red-50"
+                                className="p-2 rounded hover:bg-red-100 text-red-600"
+                                title="Видалити"
                                 disabled={deleteMutation.isPending}
                               >
-                                Видалити
+                                <Trash2 size={16} />
                               </button>
                             )}
                           </div>
